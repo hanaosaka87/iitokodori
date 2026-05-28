@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { GOOD_TAGS } from '@/lib/types'
+import AppFeedbackButtons from '@/app/components/AppFeedbackButtons'
 
 export default function MyStaysPage() {
   const router = useRouter()
@@ -76,6 +77,10 @@ export default function MyStaysPage() {
           ))}
         </div>
       )}
+
+      <div className="max-w-2xl mx-auto px-4 py-6 border-t border-amber-100 mt-4">
+        <AppFeedbackButtons appName="iitokodori" />
+      </div>
     </div>
   )
 }
