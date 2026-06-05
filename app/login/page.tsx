@@ -22,7 +22,10 @@ export default function LoginPage() {
     } else {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password })
       if (err) { setError('メールアドレスまたはパスワードが間違っています'); setLoading(false); return }
-      router.push('/')
+      // 投稿ページから来た場合は元のページへ戻る
+      const redirect = sessionStorage.getItem('redirectAfterLogin')
+      sessionStorage.removeItem('redirectAfterLogin')
+      router.push(redirect ?? '/')
     }
     setLoading(false)
   }

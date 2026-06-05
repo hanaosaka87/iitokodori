@@ -33,6 +33,7 @@ export default function OwnerDashboardPage() {
   const [replyText, setReplyText]         = useState<Record<string, string>>({})
   const [submitting, setSubmitting]       = useState<string | null>(null)
   const [loadingReviews, setLoadingReviews] = useState(false)
+  const [removingFacility, setRemovingFacility] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -58,7 +59,7 @@ export default function OwnerDashboardPage() {
       setLoadingReviews(true)
       const { data } = await supabase
         .from('reviews')
-        .select('*, profiles(display_name), owner_replies(id, reply_text, created_at)')
+        .select('*, owner_replies(id, reply_text, created_at)')
         .eq('facility_id', selectedId)
         .order('created_at', { ascending: false })
       setReviews((data as Review[]) ?? [])
@@ -98,6 +99,16 @@ export default function OwnerDashboardPage() {
   }
 
   const selectedFacility = facilities.find(f => f.id === selectedId)
+
+  const removeFacility = async () => {
+    if (!userId || !selectedId || !confirm(`「${selectedFacility?.name}」のオーナー登録を解除しますか？`)) return
+    setRemovingFacility(true)
+    await supabase.from('facility_owners').delete()
+      .eq('facility_id', selectedId).eq('user_id', userId)
+    setFacilities(prev => prev.filter(f => f.id !== selectedId))
+    setSelectedId(facilities.find(f => f.id !== selectedId)?.id ?? null)
+    setRemovingFacility(false)
+  }
 
   if (!userId) return <div className="text-center py-20 text-gray-400">読み込み中...</div>
 
@@ -152,10 +163,19 @@ export default function OwnerDashboardPage() {
               <div className="text-xs text-gray-500">いいとこ</div>
             </div>
           </div>
-          <Link href={`/facility/${selectedFacility.id}`}
-            className="mt-3 inline-block text-xs text-amber-600 hover:underline">
-            施設ページを見る →
-          </Link>
+          <div className="mt-3 flex items-center gap-4">
+            <Link href={`/facility/${selectedFacility.id}`}
+              className="text-xs text-amber-600 hover:underline">
+              施設ページを見る →
+            </Link>
+            <button
+              onClick={removeFacility}
+              disabled={removingFacility}
+              className="text-xs text-gray-400 hover:text-red-400 transition disabled:opacity-50"
+            >
+              {removingFacility ? '解除中...' : '登録を解除する'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -190,7 +210,7 @@ export default function OwnerDashboardPage() {
                 </div>
                 {r.comment && <p className="text-sm text-gray-700 mb-3">{r.comment}</p>}
                 <div className="text-xs text-gray-400 flex gap-3">
-                  <span>👤 {r.profiles?.display_name ?? '匿名'}</span>
+                  <span>👤 匿名</span>
                   {r.visited_date && <span>📅 {r.visited_date}</span>}
                   <span>{new Date(r.created_at).toLocaleDateString('ja-JP')}</span>
                 </div>

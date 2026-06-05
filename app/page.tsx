@@ -94,8 +94,8 @@ export default async function TopPage() {
         </section>
       )}
 
-      {/* 旅コンプリ連携バナー */}
-      <section className="max-w-5xl mx-auto px-4 pb-8">
+      {/* 連携バナー */}
+      <section className="max-w-5xl mx-auto px-4 pb-8 flex flex-col gap-3">
         <a
           href="https://tabi-compuri.hana.trickster.biz"
           target="_blank"
@@ -106,6 +106,19 @@ export default async function TopPage() {
           <div className="flex-1">
             <p className="text-sm font-bold text-emerald-700">旅コンプリで旅行を「制覇」しよう</p>
             <p className="text-gray-500 text-xs mt-0.5">全国の温泉・お城・道の駅など9,000件以上のスポットを制覇するゲーム感覚の旅行アプリ</p>
+          </div>
+          <span className="text-gray-400 text-sm flex-shrink-0">›</span>
+        </a>
+        <a
+          href="https://hanabimaturi.hana.trickster.biz"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-4 bg-orange-50 border border-orange-200 rounded-2xl px-5 py-4 hover:border-orange-400 transition shadow-sm"
+        >
+          <span className="text-3xl flex-shrink-0">🎆</span>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-orange-700">はなびまつりで花火大会・お祭りを探そう</p>
+            <p className="text-gray-500 text-xs mt-0.5">全国763件の花火大会・152件のお祭り。みどころ・穴場スポット・近くのトイレも1画面で</p>
           </div>
           <span className="text-gray-400 text-sm flex-shrink-0">›</span>
         </a>

@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { GOOD_TAGS } from '@/lib/types'
@@ -10,106 +9,118 @@ export default function NewReviewPage() {
   const params = useParams()
   const facilityId = params.facilityId as string
 
-  const [facility, setFacility] = useState<any>(null)
-  const [title, setTitle] = useState('')
+  const [facility, setFacility]         = useState<any>(null)
+  const [userId, setUserId]             = useState<string | null>(null)
+  const [authChecked, setAuthChecked]   = useState(false)
+  const [title, setTitle]               = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [comment, setComment] = useState('')
-  const [visitedDate, setVisitedDate] = useState('')
-  const [checking, setChecking] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [tabiUrl, setTabiUrl] = useState('')
-  const [error, setError] = useState('')
+  const [comment, setComment]           = useState('')
+  const [visitedDate, setVisitedDate]   = useState('')
+  const [submitting, setSubmitting]     = useState(false)
+  const [submitted, setSubmitted]       = useState(false)
+  const [error, setError]               = useState('')
   const [negativeWarning, setNegativeWarning] = useState(false)
 
   useEffect(() => {
-    supabase.from('facilities').select('*').eq('id', facilityId).single()
-      .then(({ data }) => setFacility(data))
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) router.push('/login')
-    })
-  }, [facilityId, router])
+    const init = async () => {
+      const [{ data: fac }, { data: { user } }] = await Promise.all([
+        supabase.from('facilities').select('*').eq('id', facilityId).single(),
+        supabase.auth.getUser(),
+      ])
+      setFacility(fac)
+      setUserId(user?.id ?? null)
+      setAuthChecked(true)
+    }
+    init()
+  }, [facilityId])
 
-  const toggleTag = (id: string) => {
-    setSelectedTags(prev =>
-      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
-    )
-  }
+  const toggleTag = (id: string) =>
+    setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
 
-  const checkAndSubmit = async () => {
-    if (!title.trim()) { setError('一言タイトルを入力してください'); return }
+  const handleSubmit = async () => {
+    if (!title.trim())          { setError('一言タイトルを入力してください'); return }
     if (selectedTags.length === 0) { setError('良かった点を1つ以上選んでください'); return }
+    if (!userId)                { setError('ログインが必要です'); return }
     setError('')
     setNegativeWarning(false)
 
-    // マイナスワード検知
+    // マイナスワード検知（失敗しても投稿は続行）
     if (comment.trim()) {
-      setChecking(true)
       try {
         const res = await fetch('/api/check-negative', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: comment }),
         })
-        const { isNegative } = await res.json()
-        if (isNegative) {
-          setNegativeWarning(true)
-          setChecking(false)
-          return
+        if (res.ok) {
+          const { isNegative } = await res.json()
+          if (isNegative) { setNegativeWarning(true); return }
         }
-      } catch { /* ネットワークエラー時はそのまま続行 */ }
-      setChecking(false)
+      } catch { /* API失敗時はそのまま続行 */ }
     }
 
-    await submit()
-  }
-
-  const submit = async () => {
     setSubmitting(true)
-    const { data: { user } } = await supabase.auth.getUser()
     const { error: err } = await supabase.from('reviews').insert({
-      user_id: user?.id,
-      facility_id: facilityId,
-      title: title.trim(),
-      good_tags: selectedTags,
-      comment: comment.trim() || null,
+      user_id:      userId,
+      facility_id:  facilityId,
+      title:        title.trim(),
+      good_tags:    selectedTags,
+      comment:      comment.trim() || null,
       visited_date: visitedDate || null,
     })
-    if (err) { setError('投稿に失敗しました。もう一度お試しください。'); setSubmitting(false); return }
-    const { data: { session } } = await supabase.auth.getSession()
-    const base = `https://tabi-compuri.hana.trickster.biz/spots?pref=${parseInt(facility?.prefecture_code ?? '0', 10)}`
-    setTabiUrl(session
-      ? `${base}#access_token=${session.access_token}&refresh_token=${session.refresh_token}&token_type=bearer`
-      : base
-    )
+
+    if (err) {
+      setError(`投稿エラー: ${err.message} [${err.code}]`)
+      setSubmitting(false)
+      return
+    }
+
     setSubmitting(false)
     setSubmitted(true)
+    setTimeout(() => { window.location.href = `/facility/${facilityId}` }, 3000)
   }
 
-  if (!facility) return <div className="text-center py-20 text-gray-400">読み込み中...</div>
+  // 読み込み中
+  if (!authChecked || !facility) {
+    return <div className="text-center py-20 text-gray-400">読み込み中...</div>
+  }
 
+  // 未ログイン
+  if (!userId) return (
+    <div className="max-w-xl mx-auto px-4 py-16 text-center">
+      <div className="text-5xl mb-4">🔐</div>
+      <h1 className="text-xl font-bold text-gray-700 mb-2">ログインが必要です</h1>
+      <p className="text-gray-500 text-sm mb-6">
+        「{facility?.name}」にいいとこを投稿するにはログインしてください。
+      </p>
+      <button
+        onClick={() => {
+          // ログイン後にこのページに戻れるようにURLを保存
+          sessionStorage.setItem('redirectAfterLogin', window.location.pathname)
+          router.push('/login')
+        }}
+        className="bg-amber-500 text-white font-bold px-8 py-3 rounded-xl hover:bg-amber-600 transition"
+      >
+        ログインする
+      </button>
+    </div>
+  )
+
+  // 投稿完了
   if (submitted) return (
     <div className="max-w-xl mx-auto px-4 py-16 text-center">
       <div className="text-6xl mb-4">🌸</div>
       <h1 className="text-2xl font-bold text-amber-700 mb-2">投稿ありがとうございます！</h1>
       <p className="text-gray-500 text-sm mb-8">
         「{facility.name}」のいいとこが届きました。<br />
-        あなたの口コミが次の旅行者の役に立ちます。
+        3秒後に施設ページへ移動します。
       </p>
-
-      <a
-        href={tabiUrl || `https://tabi-compuri.hana.trickster.biz/spots?pref=${parseInt(facility.prefecture_code, 10)}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block bg-emerald-500 text-white font-bold py-4 px-6 rounded-xl hover:bg-emerald-600 transition mb-4"
+      <button
+        onClick={() => { window.location.href = `/facility/${facilityId}` }}
+        className="block w-full text-amber-600 hover:underline text-sm"
       >
-        🗾 旅コンプリで{facility.prefecture_name}のスポットを制覇しよう
-      </a>
-
-      <Link href={`/facility/${facilityId}`}
-        className="block text-amber-600 hover:underline text-sm">
-        施設ページに戻る →
-      </Link>
+        すぐに施設ページへ →
+      </button>
     </div>
   )
 
@@ -170,7 +181,7 @@ export default function NewReviewPage() {
           {negativeWarning && (
             <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
               😊 <strong>良かったことだけ</strong>を教えてください。<br />
-              このアプリでは、旅の素敵な思い出だけをシェアしています。
+              コメントを修正するか、コメントなしで投稿してください。
             </div>
           )}
         </div>
@@ -183,11 +194,15 @@ export default function NewReviewPage() {
           />
         </div>
 
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <p className="text-red-600 text-sm font-medium">{error}</p>
+          </div>
+        )}
 
-        <button onClick={checkAndSubmit} disabled={checking || submitting}
+        <button onClick={handleSubmit} disabled={submitting}
           className="w-full bg-amber-500 text-white font-bold py-3 rounded-xl hover:bg-amber-600 transition disabled:opacity-50">
-          {checking ? '確認中...' : submitting ? '投稿中...' : '🌸 いいとこを投稿する'}
+          {submitting ? '投稿中...' : '🌸 いいとこを投稿する'}
         </button>
       </div>
     </div>

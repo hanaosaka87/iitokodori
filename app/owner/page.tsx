@@ -12,6 +12,7 @@ export default function OwnerPage() {
   const [myFacilityIds, setMyFacilityIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [applying, setApplying] = useState<string | null>(null)
+  const [removing, setRemoving] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -51,6 +52,20 @@ export default function OwnerPage() {
       setMyFacilityIds(prev => new Set([...prev, facilityId]))
     }
     setApplying(null)
+  }
+
+  const remove = async (facilityId: string) => {
+    if (!userId || !confirm('このオーナー登録を解除しますか？')) return
+    setRemoving(facilityId)
+    const { error } = await supabase
+      .from('facility_owners')
+      .delete()
+      .eq('facility_id', facilityId)
+      .eq('user_id', userId)
+    if (!error) {
+      setMyFacilityIds(prev => { const n = new Set(prev); n.delete(facilityId); return n })
+    }
+    setRemoving(null)
   }
 
   return (
@@ -108,7 +123,13 @@ export default function OwnerPage() {
                 <p className="text-xs text-amber-600 mt-0.5">💬 {f.review_count}件の口コミ</p>
               </div>
               {myFacilityIds.has(f.id) ? (
-                <span className="text-emerald-600 text-sm font-bold shrink-0">✅ 登録済み</span>
+                <button
+                  onClick={() => remove(f.id)}
+                  disabled={removing === f.id}
+                  className="text-gray-400 text-xs border border-gray-200 px-3 py-1.5 rounded-xl hover:border-red-300 hover:text-red-400 transition disabled:opacity-50 shrink-0"
+                >
+                  {removing === f.id ? '解除中...' : '✅ 登録済み（解除）'}
+                </button>
               ) : (
                 <button
                   onClick={() => apply(f.id)}

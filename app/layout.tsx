@@ -17,10 +17,23 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
-      <body className="min-h-screen bg-amber-50 text-gray-800">
+      <head>
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9871252905587015"
+          crossOrigin="anonymous"
+        />
+      </head>
+      <body className="min-h-screen bg-amber-50 text-gray-800 flex flex-col">
         <AuthHashHandler />
         <Header />
-        <main>{children}</main>
+        <main className="flex-1">{children}</main>
+        <footer className="bg-amber-100 border-t border-amber-200 text-center text-xs text-amber-600 py-2 px-4 flex gap-4 justify-center flex-wrap">
+          <a href="/about" className="hover:text-amber-800">このアプリについて</a>
+          <a href="https://hana.trickster.biz/privacy-policy.html" className="hover:text-amber-800">プライバシーポリシー</a>
+          <a href="https://hana.trickster.biz/tokushoho.html" className="hover:text-amber-800">特定商取引法</a>
+          <span>© 株式会社華</span>
+        </footer>
       </body>
     </html>
   )

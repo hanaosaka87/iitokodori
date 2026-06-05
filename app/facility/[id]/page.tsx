@@ -1,19 +1,114 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import iconv from 'iconv-lite'
 import { supabase } from '@/lib/supabase'
 import { GOOD_TAGS, CATEGORY_LABEL, type Category } from '@/lib/types'
 import TabiCompuriBanner from '@/app/components/TabiCompuriBanner'
 
+// じゃらんはShift-JISエンコードが必要
+function encodeShiftJIS(str: string): string {
+  const buf = iconv.encode(str, 'Shift_JIS')
+  return Array.from(buf).map(b => `%${b.toString(16).toUpperCase().padStart(2, '0')}`).join('')
+}
+
+// ===== アフィリエイト予約リンク（施設名キーワード検索） =====
+const BOOKING_SITES = [
+  {
+    name: 'じゃらんnet',
+    icon: '🏮',
+    color: 'text-orange-600',
+    bg: 'bg-orange-50 hover:bg-orange-100',
+    border: 'border-orange-200',
+    getUrl: (name: string) =>
+      `https://px.a8.net/svt/ejp?a8mat=4B3VRA+DOZOY+14CS+6C9LD&a8ejpredirect=${encodeURIComponent(`https://www.jalan.net/uw/uwp2011/uww2011init.do?keyword=${encodeShiftJIS(name)}`)}`,
+  },
+  {
+    name: '楽天トラベル',
+    icon: '🦅',
+    color: 'text-red-600',
+    bg: 'bg-red-50 hover:bg-red-100',
+    border: 'border-red-200',
+    getUrl: (name: string) =>
+      `https://rpx.a8.net/svt/ejp?a8mat=4B3VR9+GC8AGI+2HOM+6I9N5&rakuten=y&a8ejpredirect=${encodeURIComponent(`https://kw.travel.rakuten.co.jp/keyword/Search.do?charset=utf-8&f_query=${encodeURIComponent(name)}`)}`,
+  },
+  {
+    name: 'JTB',
+    icon: '✈️',
+    color: 'text-blue-600',
+    bg: 'bg-blue-50 hover:bg-blue-100',
+    border: 'border-blue-200',
+    getUrl: (name: string) =>
+      `https://px.a8.net/svt/ejp?a8mat=4B3VRA+RDYLU+15A4+1TIJEP&a8ejpredirect=${encodeURIComponent(`https://www.jtb.co.jp/kokunai-hotel/list/?keyword=${encodeURIComponent(name)}`)}`,
+  },
+  {
+    name: '一休.com',
+    icon: '🎎',
+    color: 'text-yellow-600',
+    bg: 'bg-yellow-50 hover:bg-yellow-100',
+    border: 'border-yellow-200',
+    getUrl: (name: string) =>
+      `https://px.a8.net/svt/ejp?a8mat=4B3VRA+UD4MQ+1OK+669JL&a8ejpredirect=${encodeURIComponent(`https://www.ikyu.com/search?discsort=1&kwd=${encodeURIComponent(name)}&ppc=2&rc=1`)}`,
+  },
+  {
+    name: 'Yahoo!トラベル',
+    icon: '🔴',
+    color: 'text-purple-600',
+    bg: 'bg-purple-50 hover:bg-purple-100',
+    border: 'border-purple-200',
+    getUrl: (name: string) =>
+      `https://px.a8.net/svt/ejp?a8mat=4B3VRA+XCANM+4ZCO+60OXE&a8ejpredirect=${encodeURIComponent(`https://travel.yahoo.co.jp/search?discsort=1&kwd=${encodeURIComponent(name)}&ppc=2&rc=1`)}`,
+  },
+  {
+    name: 'Agoda',
+    icon: '🌏',
+    color: 'text-teal-600',
+    bg: 'bg-teal-50 hover:bg-teal-100',
+    border: 'border-teal-200',
+    getUrl: (name: string) =>
+      `https://px.a8.net/svt/ejp?a8mat=4B3YVC+2KA7JM+4X1W+5YRHE&a8ejpredirect=${encodeURIComponent(`https://www.agoda.com/search?q=${encodeURIComponent(name)}&lang=ja-jp`)}`,
+  },
+  {
+    name: 'ゆこゆこネット',
+    icon: '♨️',
+    color: 'text-green-600',
+    bg: 'bg-green-50 hover:bg-green-100',
+    border: 'border-green-200',
+    getUrl: (name: string) =>
+      `https://ck.jp.ap.valuecommerce.com/servlet/referral?sid=3771667&pid=892622765&vc_url=${encodeURIComponent(`https://www.yukoyuko.net/search/?keyword=${encodeURIComponent(name)}`)}`,
+  },
+  {
+    name: '日本旅行',
+    icon: '🗾',
+    color: 'text-red-600',
+    bg: 'bg-red-50 hover:bg-red-100',
+    border: 'border-red-200',
+    getUrl: (_name: string) =>
+      `https://ck.jp.ap.valuecommerce.com/servlet/referral?sid=3771667&pid=892622766&vc_url=${encodeURIComponent('https://www.nta.co.jp/yado/ranking/?SITE_ID=44080001')}`,
+  },
+]
+
+// 投稿後すぐ反映されるよう常に最新データを取得
+export const dynamic = 'force-dynamic'
+
 export default async function FacilityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const [{ data: facility }, { data: reviews }] = await Promise.all([
+  // reviews と owner_replies を分けて取得（ジョイン失敗でも reviews が消えないように）
+  const [{ data: facility }, { data: reviews }, { data: replies }] = await Promise.all([
     supabase.from('facilities').select('*').eq('id', id).single(),
     supabase.from('reviews')
-      .select('*, profiles(display_name), owner_replies(reply_text, created_at)')
+      .select('*')
       .eq('facility_id', id)
       .order('created_at', { ascending: false }),
+    supabase.from('owner_replies')
+      .select('review_id, reply_text, created_at')
+      .eq('facility_id', id),
   ])
+
+  // owner_replies を review_id でインデックス化
+  const replyMap = Object.fromEntries(
+    (replies ?? []).map(r => [r.review_id, r])
+  )
 
   if (!facility) notFound()
 
@@ -76,6 +171,56 @@ export default async function FacilityPage({ params }: { params: Promise<{ id: s
         />
       </div>
 
+      {/* レンタカー */}
+      <a
+        href="https://px.a8.net/svt/ejp?a8mat=4B3YV4+FK8X0Y+2AIA+5ZU29"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 mb-3 shadow-sm hover:bg-gray-50 transition"
+      >
+        <span className="text-2xl">🚗</span>
+        <div>
+          <p className="text-sm font-medium text-gray-700">レンタカーを探す</p>
+          <p className="text-gray-400 text-xs">{facility.prefecture_name}のレンタカーを比較・予約</p>
+        </div>
+        <span className="ml-auto text-gray-400 text-sm">›</span>
+      </a>
+
+      {/* アソビュー */}
+      <a
+        href={`https://px.a8.net/svt/ejp?a8mat=4B3Y3C+8BH22A+455G+656YP&a8ejpredirect=${encodeURIComponent('https://www.asoview.com/')}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-3 shadow-sm hover:bg-green-100 transition"
+      >
+        <span className="text-2xl">🎡</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-green-700">アソビューでチケットを予約</p>
+          <p className="text-gray-400 text-xs truncate">{facility.name}の体験・入場券を比較</p>
+        </div>
+        <span className="text-gray-400 text-sm flex-shrink-0">›</span>
+      </a>
+
+      {/* 宿泊予約リンク */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm mb-6">
+        <h2 className="text-sm font-bold text-gray-500 mb-3">🏷️ この施設を予約・比較する</h2>
+        <div className="grid grid-cols-3 gap-2">
+          {BOOKING_SITES.map(site => (
+            <a
+              key={site.name}
+              href={site.getUrl(facility.name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex flex-col items-center gap-1.5 ${site.bg} border ${site.border} rounded-xl px-2 py-3 transition text-center`}
+            >
+              <span className="text-xl">{site.icon}</span>
+              <p className={`text-xs font-bold ${site.color} leading-tight`}>{site.name}</p>
+            </a>
+          ))}
+        </div>
+        <p className="text-gray-400 text-xs mt-2 text-center">※ 各サービスの外部サイトへ遷移します</p>
+      </div>
+
       {/* レビュー一覧 */}
       <h2 className="text-lg font-bold text-amber-700 mb-4">
         💬 みんなのいいとこ（{reviews?.length ?? 0}件）
@@ -106,19 +251,19 @@ export default async function FacilityPage({ params }: { params: Promise<{ id: s
               </div>
               {r.comment && <p className="text-sm text-gray-700 mb-3">{r.comment}</p>}
               <div className="text-xs text-gray-400 flex gap-3">
-                <span>👤 {r.profiles?.display_name ?? '匿名'}</span>
+                <span>👤 匿名</span>
                 {r.visited_date && <span>📅 {r.visited_date}</span>}
                 <span>{new Date(r.created_at).toLocaleDateString('ja-JP')}</span>
               </div>
               {/* オーナー返信 */}
-              {r.owner_replies?.[0] && (
+              {replyMap[r.id] && (
                 <div className="mt-4 bg-amber-50 border border-amber-100 rounded-xl p-3 flex gap-2">
                   <span className="text-base shrink-0">🏨</span>
                   <div>
                     <p className="text-xs font-bold text-amber-700 mb-1">施設からの返信</p>
-                    <p className="text-sm text-gray-700">{r.owner_replies[0].reply_text}</p>
+                    <p className="text-sm text-gray-700">{replyMap[r.id].reply_text}</p>
                     <p className="text-xs text-gray-400 mt-1">
-                      {new Date(r.owner_replies[0].created_at).toLocaleDateString('ja-JP')}
+                      {new Date(replyMap[r.id].created_at).toLocaleDateString('ja-JP')}
                     </p>
                   </div>
                 </div>
