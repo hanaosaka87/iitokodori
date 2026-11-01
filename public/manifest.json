@@ -1,0 +1,58 @@
+{
+  "id": "biz.trickster.hana.iitokodori",
+  "name": "いいとこどり",
+  "short_name": "いいとこどり",
+  "description": "「いいとこ」「良かった！」「また泊まりたい！」が集まる場所。読むたびに旅したくなる、新しい口コミ体験。マイナス評価一切なし。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F97316",
+  "theme_color": "#F97316",
+  "lang": "ja",
+  "categories": ["travel", "lifestyle"],
+  "prefer_related_applications": false,
+  "iarc_rating_id": "",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "いいとこどり トップページ"
+    },
+    {
+      "src": "/screenshot-narrow.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "いいとこどり スマートフォン表示"
+    }
+  ]
+}

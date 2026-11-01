@@ -3,7 +3,7 @@
 import Script from 'next/script'
 import { usePathname } from 'next/navigation'
 
-const AD_EXCLUDED_PATHS = ['/login', '/404', '/_not-found']
+const AD_EXCLUDED_PATHS = ['/login', '/owner', '/my-stays', '/review/new', '/404', '/_not-found']
 
 export default function AdsenseLoader() {
   const pathname = usePathname()

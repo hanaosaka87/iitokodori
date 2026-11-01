@@ -24,13 +24,16 @@ export default function Header() {
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-2xl">🌸</span>
-          <span className="font-bold text-xl text-amber-700">いいとこどり</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon-512.png" alt="" className="w-8 h-8 rounded-lg" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-text.png" alt="いいとこどり" className="h-5 w-auto" />
           <span className="text-xs text-amber-500 hidden sm:block">宿泊施設の良かったことだけ</span>
         </Link>
         <nav className="flex items-center gap-3 text-sm">
           <Link href="/search" className="text-gray-600 hover:text-amber-700">施設を探す</Link>
           <Link href="/ranking" className="text-gray-600 hover:text-amber-700">ランキング</Link>
+          <Link href="/howto" className="text-gray-600 hover:text-amber-700 hidden sm:block">使い方</Link>
           {user ? (
             <>
               <Link href="/my-stays" className="text-gray-600 hover:text-amber-700">マイ記録</Link>

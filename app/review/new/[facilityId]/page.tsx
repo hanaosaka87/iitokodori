@@ -1,8 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { GOOD_TAGS } from '@/lib/types'
+import PostSuccessShare from '@/app/components/PostSuccessShare'
+
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024
 
 export default function NewReviewPage() {
   const router = useRouter()
@@ -20,6 +23,10 @@ export default function NewReviewPage() {
   const [submitted, setSubmitted]       = useState(false)
   const [error, setError]               = useState('')
   const [negativeWarning, setNegativeWarning] = useState(false)
+  const [shareText, setShareText] = useState('')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -36,6 +43,31 @@ export default function NewReviewPage() {
 
   const toggleTag = (id: string) =>
     setSelectedTags(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { setError('画像ファイルを選択してください'); return }
+    if (file.size > MAX_PHOTO_BYTES) { setError('写真は8MB以内のファイルを選択してください'); return }
+    setError('')
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const handleRemovePhoto = () => {
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const uploadPhoto = async (uid: string, file: File): Promise<string | null> => {
+    const ext = file.name.split('.').pop()
+    const path = `${uid}/review-${Date.now()}.${ext}`
+    const { error: uploadErr } = await supabase.storage.from('photos').upload(path, file)
+    if (uploadErr) return null
+    const { data } = supabase.storage.from('photos').getPublicUrl(path)
+    return data.publicUrl
+  }
 
   const handleSubmit = async () => {
     if (!title.trim())          { setError('一言タイトルを入力してください'); return }
@@ -60,14 +92,14 @@ export default function NewReviewPage() {
     }
 
     setSubmitting(true)
-    const { error: err } = await supabase.from('reviews').insert({
+    const { data: inserted, error: err } = await supabase.from('reviews').insert({
       user_id:      userId,
       facility_id:  facilityId,
       title:        title.trim(),
       good_tags:    selectedTags,
       comment:      comment.trim() || null,
       visited_date: visitedDate || null,
-    })
+    }).select('id').single()
 
     if (err) {
       setError(`投稿エラー: ${err.message} [${err.code}]`)
@@ -75,9 +107,16 @@ export default function NewReviewPage() {
       return
     }
 
+    if (photoFile && inserted) {
+      const photoUrl = await uploadPhoto(userId, photoFile)
+      if (photoUrl) {
+        await supabase.from('review_photos').insert({ review_id: inserted.id, storage_url: photoUrl })
+      }
+    }
+
     setSubmitting(false)
     setSubmitted(true)
-    setTimeout(() => { window.location.href = `/facility/${facilityId}` }, 3000)
+    setShareText(`「${facility.name}」の${title.trim()}🌸\n#いいとこどり で良かったことをシェアしよう`)
   }
 
   // 読み込み中
@@ -112,22 +151,24 @@ export default function NewReviewPage() {
       <div className="text-6xl mb-4">🌸</div>
       <h1 className="text-2xl font-bold text-amber-700 mb-2">投稿ありがとうございます！</h1>
       <p className="text-gray-500 text-sm mb-8">
-        「{facility.name}」のいいとこが届きました。<br />
-        3秒後に施設ページへ移動します。
+        「{facility.name}」のいいとこが届きました。
       </p>
       <button
         onClick={() => { window.location.href = `/facility/${facilityId}` }}
         className="block w-full text-amber-600 hover:underline text-sm"
       >
-        すぐに施設ページへ →
+        施設ページへ →
       </button>
+      {shareText && (
+        <PostSuccessShare text={shareText} onClose={() => { window.location.href = `/facility/${facilityId}` }} />
+      )}
     </div>
   )
 
   return (
     <div className="max-w-xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-amber-700 mb-1">✏️ いいとこを投稿</h1>
-      <p className="text-gray-500 text-sm mb-6">{facility.name}</p>
+      <p className="text-gray-500 text-sm mb-6">「また泊まりたい」と思えた理由を、{facility.name}に教えてあげましょう</p>
 
       <div className="bg-white rounded-2xl p-6 shadow-sm space-y-6">
 
@@ -192,6 +233,25 @@ export default function NewReviewPage() {
           <input type="date" value={visitedDate} onChange={e => setVisitedDate(e.target.value)}
             className="border border-gray-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-amber-300"
           />
+        </div>
+
+        {/* ベストショット（1枚） */}
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-2">📷 ベストショットを1枚添付（任意）</label>
+          {photoPreview ? (
+            <div className="relative inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photoPreview} alt="プレビュー" className="w-full max-h-56 object-cover rounded-xl" />
+              <button type="button" onClick={handleRemovePhoto}
+                className="absolute top-2 right-2 bg-black/60 text-white w-7 h-7 rounded-full text-sm">✕</button>
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-200 rounded-xl py-6 cursor-pointer hover:border-amber-300 transition">
+              <span className="text-2xl">📷</span>
+              <span className="text-xs text-gray-400">タップして写真を選択</span>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+            </label>
+          )}
         </div>
 
         {error && (

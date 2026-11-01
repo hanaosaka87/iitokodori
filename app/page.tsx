@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { GOOD_TAGS, CATEGORY_LABEL, type Category } from '@/lib/types'
 import AppFeedbackButtons from './components/AppFeedbackButtons'
@@ -30,25 +31,58 @@ export default async function TopPage() {
   return (
     <div>
       {/* HERO */}
-      <section className="bg-gradient-to-br from-amber-400 to-orange-300 text-white py-16 px-4 text-center">
-        <div className="max-w-2xl mx-auto">
-          <div className="text-5xl mb-4">🌸</div>
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">
-            良かったことだけを<br />共有しよう
-          </h1>
-          <p className="text-amber-100 text-lg mb-8">
-            ホテル・旅館の「いいとこ」だけが集まるレビューアプリ。<br />
-            マイナス評価なし。旅の幸せをみんなでシェア。
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/search"
-              className="bg-white text-amber-600 font-bold px-8 py-3 rounded-full hover:bg-amber-50 transition shadow-lg">
-              施設を探す 🔍
-            </Link>
-            <Link href="/login"
-              className="bg-amber-600 text-white font-bold px-8 py-3 rounded-full hover:bg-amber-700 transition shadow-lg border border-amber-500">
-              レビューを書く ✏️
-            </Link>
+      <section className="relative overflow-hidden bg-gradient-to-br from-pink-500 from-0% via-orange-400 via-35% to-yellow-300 to-100% text-white py-14 sm:py-20 px-4">
+        {/* 装飾グロー */}
+        <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 bg-white/20 rounded-full blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -right-16 w-80 h-80 bg-yellow-200/30 rounded-full blur-3xl" />
+
+        <div className="relative max-w-5xl mx-auto flex flex-col sm:flex-row items-center gap-10 sm:gap-12">
+          {/* アートワーク */}
+          <div className="relative shrink-0">
+            <div className="absolute inset-0 bg-white/30 rounded-[2.5rem] blur-2xl scale-95" />
+            <Image
+              src="/hero-iitokodori.png"
+              alt="いいとこどり 温泉旅情"
+              width={640}
+              height={640}
+              priority
+              className="relative w-48 h-48 sm:w-64 sm:h-64 rounded-[2rem] shadow-2xl ring-4 ring-white/40"
+            />
+          </div>
+
+          {/* テキスト */}
+          <div className="text-center sm:text-left">
+            <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-snug">
+              「いいとこ」「良かった！」<br />「また泊まりたい！」が集まる場所。
+            </h1>
+            <p className="text-pink-50 text-lg mb-8">
+              ホテル・旅館・宿泊施設の魅力だけをシェアするレビューアプリ。<br />
+              読むたびに旅したくなる、新しい口コミ体験。マイナス評価一切なし。
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center sm:justify-start mb-4">
+              <Link href="/search"
+                className="bg-white text-rose-600 font-bold px-8 py-3 rounded-full hover:bg-pink-50 transition shadow-lg">
+                施設を探す 🔍
+              </Link>
+              <Link href="/search"
+                className="bg-gradient-to-r from-pink-600 to-orange-500 text-white font-bold px-8 py-3 rounded-full hover:from-pink-700 hover:to-orange-600 transition shadow-lg border border-white/30">
+                レビューを書く ✏️
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+              <Link href="/my-stays"
+                className="bg-white/15 text-white border border-white/40 px-5 py-1.5 rounded-full text-sm font-medium hover:bg-white/25 transition">
+                🌸 マイページ（マイ記録）
+              </Link>
+              <Link href="/howto"
+                className="bg-white/15 text-white border border-white/40 px-5 py-1.5 rounded-full text-sm font-medium hover:bg-white/25 transition">
+                📖 使い方
+              </Link>
+              <Link href="/owner"
+                className="bg-white/15 text-white border border-white/40 px-5 py-1.5 rounded-full text-sm font-medium hover:bg-white/25 transition">
+                🏨 オーナー様
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -58,9 +92,9 @@ export default async function TopPage() {
         <h2 className="text-center text-2xl font-bold text-amber-700 mb-8">いいとこどりの3つの約束</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {[
-            { emoji: '😊', title: 'マイナスなし', desc: '批判・クレームは一切なし。良かったことだけ投稿できます' },
-            { emoji: '🏨', title: '施設も喜ぶ', desc: 'ネガティブ口コミに怯えず、良い評判だけが積み上がります' },
-            { emoji: '✈️', title: '旅行が楽しくなる', desc: '行きたくなる情報だけ。旅のモチベーションが上がります' },
+            { emoji: '😊', title: 'マイナスなし', desc: '批判・クレームは一切なし。「いいとこ」だけが集まります' },
+            { emoji: '🏨', title: '施設も喜ぶ', desc: 'ネガティブ口コミに怯えず、「また泊まりたい」の声だけが積み上がります' },
+            { emoji: '✈️', title: '旅したくなる', desc: '読むたびに行きたくなる口コミだけ。次の旅の背中を押してくれます' },
           ].map(item => (
             <div key={item.title} className="bg-white rounded-2xl p-6 text-center shadow-sm">
               <div className="text-4xl mb-3">{item.emoji}</div>
@@ -75,7 +109,7 @@ export default async function TopPage() {
       {topFacilities.length > 0 && (
         <section className="max-w-5xl mx-auto px-4 pb-10">
           <div className="flex justify-between items-center mb-5">
-            <h2 className="text-xl font-bold text-amber-700">🏆 レビューが多い施設</h2>
+            <h2 className="text-xl font-bold text-amber-700">🏆 「また泊まりたい」が多い施設</h2>
             <Link href="/search" className="text-amber-600 text-sm hover:underline">もっと見る →</Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -127,13 +161,13 @@ export default async function TopPage() {
       {/* 最新レビュー */}
       <section className="max-w-5xl mx-auto px-4 pb-12">
         <div className="flex justify-between items-center mb-5">
-          <h2 className="text-xl font-bold text-amber-700">✨ 最新のいいとこ</h2>
+          <h2 className="text-xl font-bold text-amber-700">✨ 読むたびに旅したくなる、最新のいいとこ</h2>
         </div>
         {recentReviews.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <div className="text-5xl mb-4">🌱</div>
-            <p>まだレビューがありません。最初のいいとこを投稿してみましょう！</p>
-            <Link href="/login" className="mt-4 inline-block bg-amber-500 text-white px-6 py-2 rounded-full">
+            <p>まだ「いいとこ」がありません。最初の一言を投稿してみましょう！</p>
+            <Link href="/search" className="mt-4 inline-block bg-amber-500 text-white px-6 py-2 rounded-full">
               最初に投稿する
             </Link>
           </div>
@@ -164,7 +198,7 @@ export default async function TopPage() {
       {/* フッター */}
       <footer className="text-center text-gray-400 text-sm py-8 border-t border-amber-100 space-y-3 bg-white">
         <div className="flex items-center justify-center gap-4">
-          <Link href="/privacy" className="hover:text-gray-600 transition">プライバシーポリシー</Link>
+          <a href="https://hana.trickster.biz/privacy-policy.html" className="hover:text-gray-600 transition">プライバシーポリシー</a>
         </div>
         <AppFeedbackButtons appName="iitokodori" />
         <p>© 2026 いいとこどり by 株式会社華</p>

@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'いいとこどりについて | 宿泊施設の良かったことだけ集まるレビューアプリ',
-  description: 'いいとこどりは、ホテル・旅館のポジティブな体験だけを共有できる宿泊レビューアプリです。マイナス評価なし。旅の良い思い出を集めて、次の旅先選びに役立てましょう。',
+  description: '「いいとこ」「良かった！」「また泊まりたい！」が集まるいいとこどり。ホテル・旅館・宿泊施設の魅力だけをシェアする、読むたびに旅したくなる新しい口コミ体験です。マイナス評価一切なし。',
 }
 
 export default function AboutPage() {
@@ -19,8 +19,8 @@ export default function AboutPage() {
           <div className="text-6xl mb-4">🌸</div>
           <h1 className="text-2xl font-bold text-gray-800 mb-3">いいとこどり</h1>
           <p className="text-gray-600 leading-relaxed">
-            ホテル・旅館のポジティブな体験だけを共有するレビューアプリです。<br />
-            マイナス評価なし。「ここが良かった！」だけを集めました。
+            「いいとこ」「良かった！」「また泊まりたい！」が集まる場所。<br />
+            読むたびに旅したくなる、新しい口コミ体験。マイナス評価一切なし。
           </p>
         </section>
 
@@ -49,8 +49,8 @@ export default function AboutPage() {
               },
               {
                 icon: '🏨',
-                title: '201件以上の施設を収録',
-                desc: 'ホテル・旅館・民宿・ゲストハウスなど、全国の宿泊施設のレビューを投稿・閲覧できます。',
+                title: '全国19,000件以上の施設を収録',
+                desc: 'ホテル・旅館・民宿・ゲストハウスなど、全国の宿泊施設の「いいとこ」を投稿・閲覧できます。',
               },
               {
                 icon: '🔍',

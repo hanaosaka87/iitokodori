@@ -1,9 +1,11 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { GOOD_TAGS, CATEGORY_LABEL, type Category } from '@/lib/types'
+
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024
 
 type OwnedFacility = {
   id: string
@@ -11,6 +13,9 @@ type OwnedFacility = {
   category: Category
   prefecture_name: string
   review_count: number
+  official_url: string | null
+  thumbnail_url: string | null
+  appeal_points: string | null
 }
 
 type Review = {
@@ -28,12 +33,20 @@ export default function OwnerDashboardPage() {
   const router = useRouter()
   const [userId, setUserId]               = useState<string | null>(null)
   const [facilities, setFacilities]       = useState<OwnedFacility[]>([])
+  const [pendingFacilities, setPendingFacilities] = useState<OwnedFacility[]>([])
   const [selectedId, setSelectedId]       = useState<string | null>(null)
   const [reviews, setReviews]             = useState<Review[]>([])
   const [replyText, setReplyText]         = useState<Record<string, string>>({})
   const [submitting, setSubmitting]       = useState<string | null>(null)
   const [loadingReviews, setLoadingReviews] = useState(false)
   const [removingFacility, setRemovingFacility] = useState(false)
+  const [editOfficialUrl, setEditOfficialUrl] = useState('')
+  const [editAppealPoints, setEditAppealPoints] = useState('')
+  const [editThumbFile, setEditThumbFile] = useState<File | null>(null)
+  const [editThumbPreview, setEditThumbPreview] = useState<string | null>(null)
+  const [savingInfo, setSavingInfo] = useState(false)
+  const [infoSaved, setInfoSaved] = useState(false)
+  const thumbInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -42,13 +55,16 @@ export default function OwnerDashboardPage() {
 
       const { data: owned } = await supabase
         .from('facility_owners')
-        .select('facility_id, facilities(id, name, category, prefecture_name, review_count)')
+        .select('facility_id, status, facilities(id, name, category, prefecture_name, review_count, official_url, thumbnail_url, appeal_points)')
         .eq('user_id', data.user.id)
 
       if (owned && owned.length > 0) {
-        const list = owned.map((o: any) => o.facilities).filter(Boolean)
-        setFacilities(list)
-        setSelectedId(list[0]?.id ?? null)
+        const rows = owned as unknown as { status: string; facilities: OwnedFacility | null }[]
+        const approved = rows.filter(o => o.status === 'approved').map(o => o.facilities).filter((f): f is OwnedFacility => Boolean(f))
+        const pending = rows.filter(o => o.status === 'pending').map(o => o.facilities).filter((f): f is OwnedFacility => Boolean(f))
+        setFacilities(approved)
+        setPendingFacilities(pending)
+        setSelectedId(approved[0]?.id ?? null)
       }
     })
   }, [router])
@@ -67,6 +83,53 @@ export default function OwnerDashboardPage() {
     }
     load()
   }, [selectedId])
+
+  useEffect(() => {
+    const f = facilities.find(x => x.id === selectedId)
+    setEditOfficialUrl(f?.official_url ?? '')
+    setEditAppealPoints(f?.appeal_points ?? '')
+    setEditThumbFile(null)
+    setEditThumbPreview(null)
+    setInfoSaved(false)
+  }, [selectedId, facilities])
+
+  const handleThumbChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) return
+    if (file.size > MAX_PHOTO_BYTES) return
+    setEditThumbFile(file)
+    setEditThumbPreview(URL.createObjectURL(file))
+  }
+
+  const saveFacilityInfo = async () => {
+    if (!userId || !selectedId) return
+    setSavingInfo(true)
+    setInfoSaved(false)
+    let thumbnail_url: string | undefined
+    if (editThumbFile) {
+      const ext = editThumbFile.name.split('.').pop()
+      const path = `${userId}/facility-${selectedId}-${Date.now()}.${ext}`
+      const { error: uploadErr } = await supabase.storage.from('photos').upload(path, editThumbFile)
+      if (!uploadErr) {
+        const { data } = supabase.storage.from('photos').getPublicUrl(path)
+        thumbnail_url = data.publicUrl
+      }
+    }
+    const { error } = await supabase.from('facilities').update({
+      official_url: editOfficialUrl.trim() || null,
+      appeal_points: editAppealPoints.trim() || null,
+      ...(thumbnail_url ? { thumbnail_url } : {}),
+    }).eq('id', selectedId)
+
+    if (!error) {
+      setFacilities(prev => prev.map(f => f.id === selectedId
+        ? { ...f, official_url: editOfficialUrl.trim() || null, appeal_points: editAppealPoints.trim() || null, thumbnail_url: thumbnail_url ?? f.thumbnail_url }
+        : f))
+      setInfoSaved(true)
+    }
+    setSavingInfo(false)
+  }
 
   const submitReply = async (reviewId: string) => {
     if (!userId || !selectedId) return
@@ -115,8 +178,14 @@ export default function OwnerDashboardPage() {
   if (facilities.length === 0) return (
     <div className="max-w-xl mx-auto px-4 py-16 text-center">
       <div className="text-5xl mb-4">🏨</div>
-      <h1 className="text-xl font-bold text-gray-700 mb-2">施設が登録されていません</h1>
-      <p className="text-gray-500 text-sm mb-6">まずオーナー登録から始めてください。</p>
+      <h1 className="text-xl font-bold text-gray-700 mb-2">
+        {pendingFacilities.length > 0 ? '承認待ちの施設があります' : '施設が登録されていません'}
+      </h1>
+      <p className="text-gray-500 text-sm mb-6">
+        {pendingFacilities.length > 0
+          ? `${pendingFacilities.map(f => f.name).join('、')} の運営者確認が完了すると、ここで返信できるようになります。`
+          : 'まずオーナー登録から始めてください。'}
+      </p>
       <Link href="/owner"
         className="bg-amber-500 text-white font-bold px-6 py-3 rounded-xl hover:bg-amber-600 transition">
         オーナー登録へ →
@@ -175,6 +244,65 @@ export default function OwnerDashboardPage() {
             >
               {removingFacility ? '解除中...' : '登録を解除する'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 施設の基本情報編集（テスターフィードバック対応：2026-10-25） */}
+      {selectedFacility && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm mb-6">
+          <h2 className="text-lg font-bold text-gray-700 mb-4">📝 施設の基本情報を編集</h2>
+
+          <div className="mb-4">
+            <label className="block text-sm font-bold text-gray-700 mb-2">施設のメイン画像</label>
+            {(editThumbPreview || selectedFacility.thumbnail_url) ? (
+              <div className="relative inline-block mb-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={editThumbPreview ?? selectedFacility.thumbnail_url ?? ''}
+                  alt={selectedFacility.name}
+                  className="w-full max-h-48 object-cover rounded-xl"
+                />
+              </div>
+            ) : null}
+            <label className="block w-full text-center border-2 border-dashed border-gray-200 rounded-xl py-3 text-xs text-gray-400 cursor-pointer hover:border-amber-300 transition">
+              📷 画像を選択（変更する場合）
+              <input ref={thumbInputRef} type="file" accept="image/*" onChange={handleThumbChange} className="hidden" />
+            </label>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-bold text-gray-700 mb-2">ホームページURL</label>
+            <input
+              type="url"
+              value={editOfficialUrl}
+              onChange={e => setEditOfficialUrl(e.target.value)}
+              placeholder="https://example.com"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-bold text-gray-700 mb-2">アピールポイント</label>
+            <textarea
+              value={editAppealPoints}
+              onChange={e => setEditAppealPoints(e.target.value)}
+              placeholder="自施設の魅力をお客様にアピールしましょう（最大300文字）"
+              rows={4}
+              maxLength={300}
+              className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={saveFacilityInfo}
+              disabled={savingInfo}
+              className="bg-amber-500 text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-amber-600 transition disabled:opacity-50"
+            >
+              {savingInfo ? '保存中...' : '基本情報を保存する'}
+            </button>
+            {infoSaved && <span className="text-xs text-emerald-600 font-bold">✅ 保存しました</span>}
           </div>
         </div>
       )}

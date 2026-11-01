@@ -17,7 +17,7 @@ export default function MyStaysPage() {
       if (!user) { router.push('/login'); return }
       const { data } = await supabase
         .from('reviews')
-        .select('*, facilities(name, prefecture_name, category)')
+        .select('*, facilities(name, prefecture_name, category), review_photos(storage_url)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       setReviews(data ?? [])
@@ -36,11 +36,12 @@ export default function MyStaysPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-amber-700 mb-6">🌸 マイ記録</h1>
+      <h1 className="text-2xl font-bold text-amber-700 mb-1">🌸 マイ記録</h1>
+      <p className="text-gray-500 text-sm mb-6">あなたが見つけた「いいとこ」を、いつでも振り返れます</p>
       {reviews.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <div className="text-4xl mb-3">📝</div>
-          <p>まだ投稿がありません</p>
+          <p>まだ「いいとこ」の記録がありません</p>
           <Link href="/search" className="mt-4 inline-block bg-amber-500 text-white px-6 py-2 rounded-full">
             施設を探して投稿する
           </Link>
@@ -69,6 +70,14 @@ export default function MyStaysPage() {
                 })}
               </div>
               {r.comment && <p className="text-sm text-gray-600 mb-2">{r.comment}</p>}
+              {r.review_photos?.[0]?.storage_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={r.review_photos[0].storage_url}
+                  alt="ベストショット"
+                  className="w-full max-h-60 object-cover rounded-xl mb-2"
+                />
+              )}
               <div className="text-xs text-gray-400">
                 {r.visited_date && `宿泊日: ${r.visited_date} · `}
                 {new Date(r.created_at).toLocaleDateString('ja-JP')}

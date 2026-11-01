@@ -8,12 +8,12 @@ export default async function RankingPage() {
     .select('*')
     .order('review_count', { ascending: false })
     .gt('review_count', 0)
-    .limit(20)
+    .limit(500)
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-amber-700 mb-2">🏆 いいとこランキング</h1>
-      <p className="text-sm text-gray-500 mb-8">レビュー数が多い施設TOP20</p>
+      <p className="text-sm text-gray-500 mb-8">「また泊まりたい！」の声が集まる施設、最大500件をご紹介</p>
 
       {!facilities || facilities.length === 0 ? (
         <div className="text-center py-16 text-gray-400">

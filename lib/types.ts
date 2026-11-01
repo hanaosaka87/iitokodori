@@ -60,20 +60,23 @@ export interface Facility {
   address: string | null
   official_url: string | null
   thumbnail_url: string | null
+  appeal_points: string | null
   review_count: number
   created_at: string
 }
 
 export interface Review {
   id: string
-  user_id: string
+  user_id: string | null
   facility_id: string
   title: string
   good_tags: string[]
   comment: string | null
   visited_date: string | null
   helpful_count: number
+  is_seed_data?: boolean
   created_at: string
   profiles?: { display_name: string | null }
   helpful_votes?: { id: string }[]
+  review_photos?: { storage_url: string }[]
 }

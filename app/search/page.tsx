@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { PREFECTURE_LIST, CATEGORY_LABEL, type Category, type Facility } from '@/lib/types'
@@ -8,13 +8,15 @@ import { PREFECTURE_LIST, CATEGORY_LABEL, type Category, type Facility } from '@
 const PAGE_SIZE = 100
 
 function SearchContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const initialQ    = searchParams.get('q')    ?? ''
   const initialPref = searchParams.get('pref') ?? ''
+  const initialCat  = searchParams.get('cat')  ?? ''
 
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [prefecture, setPrefecture] = useState(initialPref)
-  const [category, setCategory]     = useState('')
+  const [category, setCategory]     = useState(initialCat)
   const [keyword, setKeyword]       = useState(initialQ)
   const [loading, setLoading]       = useState(false)
   const [page, setPage]             = useState(0)
@@ -54,18 +56,35 @@ function SearchContent() {
     setLoading(false)
   }
 
-  useEffect(() => { search(initialQ, initialPref) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { search(initialQ, initialPref, initialCat) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  // 検索条件をURLクエリにも反映し、戻るボタンで絞り込みが失われないようにする
+  const syncUrl = (kw: string, pref: string, cat: string) => {
+    const params = new URLSearchParams()
+    if (kw)   params.set('q', kw)
+    if (pref) params.set('pref', pref)
+    if (cat)  params.set('cat', cat)
+    const qs = params.toString()
+    router.replace(qs ? `/search?${qs}` : '/search', { scroll: false })
+  }
 
   const handlePrefChange = (val: string) => {
     setPrefecture(val)
     search(keyword, val, category, 0)
+    syncUrl(keyword, val, category)
   }
 
   const handleCatChange = (val: string) => {
     setCategory(val)
     search(keyword, prefecture, val, 0)
+    syncUrl(keyword, prefecture, val)
+  }
+
+  const handleKeywordSearch = () => {
+    search(keyword, prefecture, category, 0)
+    syncUrl(keyword, prefecture, category)
   }
 
   const goPage = (p: number) => {
@@ -75,7 +94,15 @@ function SearchContent() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-amber-700 mb-6">🔍 施設を探す</h1>
+      <button
+        onClick={() => router.back()}
+        className="text-gray-500 hover:text-amber-700 transition text-sm mb-3 inline-flex items-center gap-1"
+      >
+        ← 戻る
+      </button>
+
+      <h1 className="text-2xl font-bold text-amber-700 mb-1">🔍 施設を探す</h1>
+      <p className="text-gray-500 text-sm mb-6">「また泊まりたい」に出会える宿を、キーワードや都道府県から探してみましょう</p>
 
       {initialQ && (
         <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 text-sm text-amber-700">
@@ -90,7 +117,7 @@ function SearchContent() {
           placeholder="施設名で検索..."
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && search(keyword, prefecture, category, 0)}
+          onKeyDown={e => e.key === 'Enter' && handleKeywordSearch()}
           className="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
         />
         <select
@@ -116,11 +143,34 @@ function SearchContent() {
           ))}
         </select>
         <button
-          onClick={() => search(keyword, prefecture, category, 0)}
+          onClick={handleKeywordSearch}
           className="bg-amber-500 text-white px-6 py-2 rounded-xl font-bold hover:bg-amber-600 transition text-sm"
         >
           検索
         </button>
+      </div>
+
+      {/* 都道府県タブ一覧（テスターフィードバック対応：2026-10-25、2026-10-25複数行折り返しに変更） */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button
+          onClick={() => handlePrefChange('')}
+          className={`px-4 py-1.5 rounded-full text-sm font-bold border transition ${
+            prefecture === '' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-600 border-gray-200 hover:border-amber-300'
+          }`}
+        >
+          すべて
+        </button>
+        {PREFECTURE_LIST.map(p => (
+          <button
+            key={p.code}
+            onClick={() => handlePrefChange(p.code)}
+            className={`px-4 py-1.5 rounded-full text-sm border transition ${
+              prefecture === p.code ? 'bg-amber-500 text-white border-amber-500 font-bold' : 'bg-white text-gray-600 border-gray-200 hover:border-amber-300'
+            }`}
+          >
+            {p.name}{prefCounts[p.code] ? `（${prefCounts[p.code].toLocaleString()}）` : ''}
+          </button>
+        ))}
       </div>
 
       {/* 件数・ページ情報 */}

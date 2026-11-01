@@ -5,11 +5,13 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import type { Facility } from '@/lib/types'
 
+type OwnerStatus = 'pending' | 'approved' | 'rejected'
+
 export default function OwnerPage() {
   const router = useRouter()
   const [keyword, setKeyword] = useState('')
   const [results, setResults] = useState<Facility[]>([])
-  const [myFacilityIds, setMyFacilityIds] = useState<Set<string>>(new Set())
+  const [myFacilities, setMyFacilities] = useState<Map<string, OwnerStatus>>(new Map())
   const [loading, setLoading] = useState(false)
   const [applying, setApplying] = useState<string | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)
@@ -21,10 +23,10 @@ export default function OwnerPage() {
       setUserId(data.user.id)
       supabase
         .from('facility_owners')
-        .select('facility_id')
+        .select('facility_id, status')
         .eq('user_id', data.user.id)
         .then(({ data: owned }) => {
-          if (owned) setMyFacilityIds(new Set(owned.map((o: any) => o.facility_id)))
+          if (owned) setMyFacilities(new Map((owned as { facility_id: string; status: OwnerStatus }[]).map(o => [o.facility_id, o.status])))
         })
     })
   }, [router])
@@ -49,13 +51,13 @@ export default function OwnerPage() {
       .from('facility_owners')
       .insert({ facility_id: facilityId, user_id: userId })
     if (!error) {
-      setMyFacilityIds(prev => new Set([...prev, facilityId]))
+      setMyFacilities(prev => new Map(prev).set(facilityId, 'pending'))
     }
     setApplying(null)
   }
 
   const remove = async (facilityId: string) => {
-    if (!userId || !confirm('このオーナー登録を解除しますか？')) return
+    if (!userId || !confirm('このオーナー登録（申請）を取り下げますか？')) return
     setRemoving(facilityId)
     const { error } = await supabase
       .from('facility_owners')
@@ -63,7 +65,7 @@ export default function OwnerPage() {
       .eq('facility_id', facilityId)
       .eq('user_id', userId)
     if (!error) {
-      setMyFacilityIds(prev => { const n = new Set(prev); n.delete(facilityId); return n })
+      setMyFacilities(prev => { const n = new Map(prev); n.delete(facilityId); return n })
     }
     setRemoving(null)
   }
@@ -73,21 +75,32 @@ export default function OwnerPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-amber-700 mb-1">🏨 施設オーナー登録</h1>
         <p className="text-gray-500 text-sm">
-          自施設を登録して、お客様の口コミに返信できます。
+          自施設を登録して、お客様からの「また泊まりたい」の声に返信できます。
+        </p>
+        <p className="text-gray-400 text-xs mt-1">
+          ※申請後、運営者の確認（承認）を経てから返信機能が使えるようになります。
         </p>
       </div>
 
-      {myFacilityIds.size > 0 && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-emerald-700">✅ {myFacilityIds.size}件の施設を登録済み</p>
+      {(() => {
+        const approvedCount = [...myFacilities.values()].filter(s => s === 'approved').length
+        const pendingCount = [...myFacilities.values()].filter(s => s === 'pending').length
+        if (approvedCount === 0 && pendingCount === 0) return null
+        return (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-6 flex items-center justify-between">
+            <div>
+              {approvedCount > 0 && <p className="text-sm font-medium text-emerald-700">✅ {approvedCount}件の施設が承認済み</p>}
+              {pendingCount > 0 && <p className="text-xs text-amber-600 mt-0.5">⏳ {pendingCount}件が運営者の承認待ちです</p>}
+            </div>
+            {approvedCount > 0 && (
+              <Link href="/owner/dashboard"
+                className="bg-emerald-500 text-white text-sm font-bold px-4 py-2 rounded-xl hover:bg-emerald-600 transition">
+                ダッシュボードへ →
+              </Link>
+            )}
           </div>
-          <Link href="/owner/dashboard"
-            className="bg-emerald-500 text-white text-sm font-bold px-4 py-2 rounded-xl hover:bg-emerald-600 transition">
-            ダッシュボードへ →
-          </Link>
-        </div>
-      )}
+        )
+      })()}
 
       {/* 施設検索 */}
       <div className="bg-white rounded-2xl p-5 shadow-sm mb-6">
@@ -122,14 +135,29 @@ export default function OwnerPage() {
                 </p>
                 <p className="text-xs text-amber-600 mt-0.5">💬 {f.review_count}件の口コミ</p>
               </div>
-              {myFacilityIds.has(f.id) ? (
-                <button
-                  onClick={() => remove(f.id)}
-                  disabled={removing === f.id}
-                  className="text-gray-400 text-xs border border-gray-200 px-3 py-1.5 rounded-xl hover:border-red-300 hover:text-red-400 transition disabled:opacity-50 shrink-0"
-                >
-                  {removing === f.id ? '解除中...' : '✅ 登録済み（解除）'}
-                </button>
+              {myFacilities.has(f.id) ? (
+                myFacilities.get(f.id) === 'approved' ? (
+                  <button
+                    onClick={() => remove(f.id)}
+                    disabled={removing === f.id}
+                    className="text-gray-400 text-xs border border-gray-200 px-3 py-1.5 rounded-xl hover:border-red-300 hover:text-red-400 transition disabled:opacity-50 shrink-0"
+                  >
+                    {removing === f.id ? '解除中...' : '✅ 登録済み（解除）'}
+                  </button>
+                ) : myFacilities.get(f.id) === 'pending' ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-amber-600 font-bold whitespace-nowrap">⏳ 承認待ち</span>
+                    <button
+                      onClick={() => remove(f.id)}
+                      disabled={removing === f.id}
+                      className="text-gray-400 text-xs border border-gray-200 px-2 py-1.5 rounded-xl hover:border-red-300 hover:text-red-400 transition disabled:opacity-50"
+                    >
+                      {removing === f.id ? '取消中...' : '取り下げ'}
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-red-400 shrink-0">却下されました</span>
+                )
               ) : (
                 <button
                   onClick={() => apply(f.id)}
