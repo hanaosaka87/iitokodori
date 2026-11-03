@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Header from './components/Header'
 import AuthHashHandler from './components/AuthHashHandler'
@@ -6,6 +6,13 @@ import AdsenseLoader from './components/AdsenseLoader'
 import GA4Loader from './components/GA4Loader'
 import ServiceWorkerLoader from './components/ServiceWorkerLoader'
 import IOSInstallBanner from './components/IOSInstallBanner'
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
   title: 'いいとこどり | 宿泊施設の良かったことだけ集まるレビューアプリ',
